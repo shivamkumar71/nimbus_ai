@@ -1,3 +1,12 @@
+/**
+ * weatherApi.ts
+ * All data fetching now goes through the Python FastAPI backend at /api.
+ * The backend is built with FastAPI + httpx and processes data with NumPy/scikit-learn.
+ */
+
+// Base URL for the Python API — the shared proxy routes /api → Python FastAPI
+const API_BASE = "/api";
+
 export interface GeocodingResult {
   id: number;
   name: string;
@@ -77,78 +86,60 @@ export interface AirQualityData {
   };
 }
 
+export interface PredictionData {
+  model: string;
+  predicted_high: number;
+  predicted_low: number;
+  predicted_high_at_hour: number;
+  predicted_low_at_hour: number;
+  r2_score: number;
+  trend: 'rising' | 'falling' | 'stable';
+  trend_delta: number;
+  hourly_predictions: { hour: number; predicted_temp: number; confidence: number }[];
+  summary: string;
+}
+
+async function apiFetch<T>(path: string, params?: Record<string, string | number>): Promise<T> {
+  const url = new URL(path, window.location.origin);
+  if (params) {
+    Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, String(v)));
+  }
+  const res = await fetch(url.toString());
+  if (!res.ok) {
+    const err = await res.text().catch(() => 'Unknown error');
+    throw new Error(`API error ${res.status}: ${err}`);
+  }
+  return res.json();
+}
+
 export async function searchLocations(query: string): Promise<GeocodingResult[]> {
   if (!query.trim()) return [];
-  const res = await fetch(
-    `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=8&language=en&format=json`
-  );
-  const data = await res.json();
+  const data = await apiFetch<{ results: GeocodingResult[] }>(`${API_BASE}/geocode`, { name: query });
   return data.results || [];
 }
 
 export async function reverseGeocode(lat: number, lon: number): Promise<GeocodingResult | null> {
   try {
-    const res = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&addressdetails=1`,
-      { headers: { 'Accept-Language': 'en' } }
-    );
-    const data = await res.json();
-    return {
-      id: 0,
-      name: data.address?.city || data.address?.town || data.address?.village || data.address?.county || 'Unknown',
-      latitude: lat,
-      longitude: lon,
-      country: data.address?.country || '',
-      country_code: data.address?.country_code?.toUpperCase() || '',
-      admin1: data.address?.state,
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    };
+    const data = await apiFetch<GeocodingResult>(`${API_BASE}/reverse-geocode`, { lat, lon });
+    return data;
   } catch {
     return null;
   }
 }
 
 export async function fetchWeather(lat: number, lon: number): Promise<WeatherData> {
-  const params = new URLSearchParams({
-    latitude: lat.toString(),
-    longitude: lon.toString(),
-    current: [
-      'temperature_2m', 'apparent_temperature', 'relative_humidity_2m',
-      'wind_speed_10m', 'wind_direction_10m', 'wind_gusts_10m',
-      'precipitation', 'surface_pressure', 'visibility', 'uv_index',
-      'weather_code', 'is_day', 'cloud_cover', 'dew_point_2m'
-    ].join(','),
-    hourly: [
-      'temperature_2m', 'apparent_temperature', 'precipitation_probability',
-      'precipitation', 'weather_code', 'wind_speed_10m', 'uv_index',
-      'relative_humidity_2m', 'visibility'
-    ].join(','),
-    daily: [
-      'weather_code', 'temperature_2m_max', 'temperature_2m_min',
-      'apparent_temperature_max', 'apparent_temperature_min',
-      'sunrise', 'sunset', 'precipitation_sum', 'precipitation_probability_max',
-      'wind_speed_10m_max', 'uv_index_max'
-    ].join(','),
-    wind_speed_unit: 'kmh',
-    forecast_days: '7',
-    timezone: 'auto',
-  });
-
-  const res = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`);
-  if (!res.ok) throw new Error('Failed to fetch weather data');
-  return res.json();
+  return apiFetch<WeatherData>(`${API_BASE}/weather`, { lat, lon });
 }
 
 export async function fetchAirQuality(lat: number, lon: number): Promise<AirQualityData> {
-  const params = new URLSearchParams({
-    latitude: lat.toString(),
-    longitude: lon.toString(),
-    current: ['us_aqi', 'pm10', 'pm2_5', 'carbon_monoxide', 'nitrogen_dioxide', 'ozone', 'dust'].join(','),
-  });
-  const res = await fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?${params}`);
-  if (!res.ok) throw new Error('Failed to fetch air quality');
-  return res.json();
+  return apiFetch<AirQualityData>(`${API_BASE}/air-quality`, { lat, lon });
 }
+
+export async function fetchPrediction(lat: number, lon: number): Promise<PredictionData> {
+  return apiFetch<PredictionData>(`${API_BASE}/predict`, { lat, lon });
+}
+
+// ── Weather description helpers (client-side) ─────────────────────────────────
 
 export interface WeatherDescription {
   label: string;
@@ -254,16 +245,6 @@ export function getUvLabel(uvi: number): { label: string; color: string } {
   return { label: 'Extreme', color: '#7c3aed' };
 }
 
-export function formatTime(timeStr: string, tz?: string): string {
-  const date = new Date(timeStr);
-  return date.toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-    timeZone: tz || undefined,
-  });
-}
-
 export function formatHour(timeStr: string): string {
   const date = new Date(timeStr);
   const h = date.getHours();
@@ -277,7 +258,6 @@ export function formatDay(dateStr: string): string {
   const today = new Date();
   const tomorrow = new Date(today);
   tomorrow.setDate(today.getDate() + 1);
-
   if (date.toDateString() === today.toDateString()) return 'Today';
   if (date.toDateString() === tomorrow.toDateString()) return 'Tomorrow';
   return date.toLocaleDateString('en-US', { weekday: 'short' });

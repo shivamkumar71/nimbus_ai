@@ -17,11 +17,12 @@ import PressureCard from "@/components/PressureCard";
 import VisibilityCard from "@/components/VisibilityCard";
 import TemperatureChart from "@/components/TemperatureChart";
 import ErrorScreen from "@/components/ErrorScreen";
+import PredictionCard from "@/components/PredictionCard";
 
 import {
-  fetchWeather, fetchAirQuality, reverseGeocode,
+  fetchWeather, fetchAirQuality, fetchPrediction, reverseGeocode,
   getWeatherDescription, getHourlyDataForNext24h,
-  type WeatherData, type AirQualityData, type GeocodingResult
+  type WeatherData, type AirQualityData, type PredictionData, type GeocodingResult
 } from "@/lib/weatherApi";
 
 interface SavedLocation {
@@ -64,24 +65,28 @@ export default function WeatherPage() {
   const [isFavorited, setIsFavorited] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [localTime, setLocalTime] = useState('');
+  const [prediction, setPrediction] = useState<PredictionData | null>(null);
   const initialized = useRef(false);
 
   async function loadWeatherForLocation(loc: SavedLocation) {
     setLoading(true);
     setError(null);
+    setPrediction(null);
     setLoadingMsg(`Loading ${loc.name}...`);
     try {
-      const [w, aq] = await Promise.allSettled([
+      const [w, aq, pred] = await Promise.allSettled([
         fetchWeather(loc.latitude, loc.longitude),
         fetchAirQuality(loc.latitude, loc.longitude),
+        fetchPrediction(loc.latitude, loc.longitude),
       ]);
       if (w.status === 'fulfilled') {
         setWeather(w.value);
         setLastUpdated(new Date());
       } else {
-        throw new Error('Failed to fetch weather data');
+        throw new Error('Failed to fetch weather data from Python API');
       }
       if (aq.status === 'fulfilled') setAirQuality(aq.value);
+      if (pred.status === 'fulfilled') setPrediction(pred.value);
       setLocation(loc);
       try { localStorage.setItem('weather_last_location', JSON.stringify(loc)); } catch {}
     } catch (e: any) {
@@ -385,12 +390,15 @@ export default function WeatherPage() {
                 {/* Air quality */}
                 {airQuality && <AirQualityCard data={airQuality} />}
 
+                {/* ML Prediction from Python */}
+                {prediction && <PredictionCard prediction={prediction} />}
+
                 {/* 7-day forecast */}
                 <DailyForecast daily={weather.daily} />
 
                 {/* Footer */}
                 <div className="text-center text-white/20 text-xs pt-4 pb-2">
-                  Weather data from Open-Meteo · SkyPulse Weather App
+                  Powered by Python FastAPI + scikit-learn · Data from Open-Meteo · SkyPulse
                 </div>
               </motion.div>
             )}
