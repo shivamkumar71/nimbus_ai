@@ -53,7 +53,7 @@ export default function LoadingScreen({ message = "Fetching weather data..." }: 
         </div>
 
         <div className="text-center">
-          <div className="gradient-text text-xl font-bold mb-2">SkyPulse</div>
+          <div className="gradient-text text-xl font-bold mb-2">Nimbus</div>
           <div className="text-white/50 text-sm">{message}</div>
         </div>
       </div>
