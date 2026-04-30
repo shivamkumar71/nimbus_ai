@@ -408,7 +408,7 @@ export default function WeatherPage() {
                       <span className="font-semibold text-white/40">Nimbus</span>
                     </div>
                     <div className="text-center">
-                      Hyper-local weather intelligence · Ensemble ML predictions · Real-time data
+                      Accurate forecasts for every corner of the world
                     </div>
                     <div className="text-white/20">
                       © {new Date().getFullYear()} Nimbus Weather. All rights reserved.
