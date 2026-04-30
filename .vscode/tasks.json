@@ -1,0 +1,68 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Python API Server",
+      "type": "shell",
+      "command": "pip install -r artifacts/api-server/python/requirements.txt --quiet && python artifacts/api-server/python/main.py",
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "nimbus",
+        "label": "🐍 Python API"
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "pattern": { "regexp": "^$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^.*Started.*$",
+          "endsPattern": "^.*Application startup complete.*$"
+        }
+      }
+    },
+    {
+      "label": "React Frontend",
+      "type": "shell",
+      "command": "cd artifacts/weather-app && npx vite --config vite.config.local.ts",
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "nimbus",
+        "label": "⚡ Frontend"
+      },
+      "isBackground": true,
+      "dependsOn": ["Install Dependencies"],
+      "problemMatcher": {
+        "pattern": { "regexp": "^$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^.*VITE.*$",
+          "endsPattern": "^.*Local.*$"
+        }
+      }
+    },
+    {
+      "label": "Install Dependencies",
+      "type": "shell",
+      "command": "pnpm install --silent 2>/dev/null || npm install --silent",
+      "presentation": {
+        "reveal": "silent",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "🚀 Start Nimbus (Both Servers)",
+      "dependsOn": ["Python API Server", "React Frontend"],
+      "dependsOrder": "parallel",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      }
+    }
+  ]
+}
