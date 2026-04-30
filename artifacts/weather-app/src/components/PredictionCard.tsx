@@ -77,7 +77,7 @@ export default function PredictionCard({ prediction }: Props) {
         </div>
         <div>
           <h3 className="text-white font-bold text-sm">Forecast Analysis</h3>
-          <p className="text-white/40 text-xs">Next 24 hours · AI-powered prediction</p>
+          <p className="text-white/40 text-xs">Next 24 hours</p>
         </div>
       </div>
 
