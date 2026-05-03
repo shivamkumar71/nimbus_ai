@@ -182,9 +182,9 @@ export default function WeatherPage() {
       {desc ? (
         <>
           <WeatherBackground
-            gradient={desc.gradient}
             particleType={desc.particleType}
             isDay={weather?.current.is_day ?? 1}
+            timezone={weather?.timezone}
           />
           <WeatherParticles
             type={desc.particleType}

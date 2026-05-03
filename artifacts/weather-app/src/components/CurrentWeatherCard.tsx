@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { Thermometer, Droplets, Wind, Eye, Gauge, Sun } from "lucide-react";
 import type { CurrentWeather } from "@/lib/weatherApi";
 import { getWeatherDescription, getWindDirection } from "@/lib/weatherApi";
+import AnimatedWeatherIcon from "@/components/AnimatedWeatherIcon";
 
 interface Props {
   current: CurrentWeather;
@@ -14,12 +15,12 @@ export default function CurrentWeatherCard({ current, location, localTime }: Pro
   const desc = getWeatherDescription(current.weather_code, current.is_day);
 
   const stats = [
-    { icon: Droplets, label: 'Humidity', value: `${current.relative_humidity_2m}%`, color: '#60a5fa' },
-    { icon: Wind, label: 'Wind', value: `${Math.round(current.wind_speed_10m)} km/h ${getWindDirection(current.wind_direction_10m)}`, color: '#34d399' },
-    { icon: Eye, label: 'Visibility', value: `${(current.visibility / 1000).toFixed(1)} km`, color: '#a78bfa' },
-    { icon: Gauge, label: 'Pressure', value: `${Math.round(current.surface_pressure)} hPa`, color: '#fbbf24' },
-    { icon: Thermometer, label: 'Dew Point', value: `${Math.round(current.dew_point_2m)}°`, color: '#f472b6' },
-    { icon: Sun, label: 'Cloud Cover', value: `${current.cloud_cover}%`, color: '#94a3b8' },
+    { icon: Droplets,    label: 'Humidity',   value: `${current.relative_humidity_2m}%`,                                              color: '#60a5fa' },
+    { icon: Wind,        label: 'Wind',        value: `${Math.round(current.wind_speed_10m)} km/h ${getWindDirection(current.wind_direction_10m)}`, color: '#34d399' },
+    { icon: Eye,         label: 'Visibility',  value: `${(current.visibility / 1000).toFixed(1)} km`,                                 color: '#a78bfa' },
+    { icon: Gauge,       label: 'Pressure',    value: `${Math.round(current.surface_pressure)} hPa`,                                  color: '#fbbf24' },
+    { icon: Thermometer, label: 'Dew Point',   value: `${Math.round(current.dew_point_2m)}°`,                                         color: '#f472b6' },
+    { icon: Sun,         label: 'Cloud Cover', value: `${current.cloud_cover}%`,                                                       color: '#94a3b8' },
   ];
 
   return (
@@ -37,41 +38,37 @@ export default function CurrentWeatherCard({ current, location, localTime }: Pro
       }}
       data-testid="card-current-weather"
     >
-      {/* Background shimmer */}
+      {/* Shimmer */}
       <div className="absolute inset-0 opacity-5 rounded-3xl"
-        style={{
-          background: 'linear-gradient(135deg, rgba(255,255,255,0.3) 0%, transparent 50%, rgba(255,255,255,0.1) 100%)',
-        }}
+        style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.3) 0%, transparent 50%, rgba(255,255,255,0.1) 100%)' }}
       />
 
       <div className="relative z-10">
         {/* Top row */}
         <div className="flex items-start justify-between mb-6">
-          <div>
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.1 }}
-            >
-              <h1 className="text-2xl md:text-3xl font-bold text-white" data-testid="text-location-name">
-                {location.name}
-              </h1>
-              <p className="text-white/60 text-sm mt-1">
-                {[location.admin1, location.country].filter(Boolean).join(', ')}
-              </p>
-              <p className="text-white/40 text-xs mt-0.5">{localTime}</p>
-            </motion.div>
-          </div>
+          <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }}>
+            <h1 className="text-2xl md:text-3xl font-bold text-white" data-testid="text-location-name">
+              {location.name}
+            </h1>
+            <p className="text-white/60 text-sm mt-1">
+              {[location.admin1, location.country].filter(Boolean).join(', ')}
+            </p>
+            <p className="text-white/40 text-xs mt-0.5">{localTime}</p>
+          </motion.div>
 
+          {/* Animated weather icon — replaces emoji */}
           <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
-            className="text-6xl md:text-7xl"
-            style={{ filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.3))' }}
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ delay: 0.2, type: 'spring', stiffness: 180, damping: 14 }}
             data-testid="icon-weather"
+            style={{ filter: 'drop-shadow(0 4px 16px rgba(0,0,0,0.35))' }}
           >
-            {desc.icon}
+            <AnimatedWeatherIcon
+              code={current.weather_code}
+              isDay={current.is_day}
+              size={84}
+            />
           </motion.div>
         </div>
 
@@ -93,7 +90,6 @@ export default function CurrentWeatherCard({ current, location, localTime }: Pro
           </div>
         </div>
 
-        {/* Divider */}
         <div className="h-px bg-white/10 my-6" />
 
         {/* Stats grid */}
