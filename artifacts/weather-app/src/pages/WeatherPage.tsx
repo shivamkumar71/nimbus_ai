@@ -185,6 +185,8 @@ export default function WeatherPage() {
             particleType={desc.particleType}
             isDay={weather?.current.is_day ?? 1}
             timezone={weather?.timezone}
+            sunrise={weather?.daily.sunrise?.[0]}
+            sunset={weather?.daily.sunset?.[0]}
           />
           <WeatherParticles
             type={desc.particleType}

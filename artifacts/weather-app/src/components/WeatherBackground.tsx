@@ -5,29 +5,50 @@ interface Props {
   particleType: 'clear' | 'cloudy' | 'rain' | 'snow' | 'storm' | 'fog' | 'drizzle';
   isDay: number;
   timezone?: string;
+  sunrise?: string;  // e.g. "2026-05-03T05:34"
+  sunset?: string;   // e.g. "2026-05-03T20:47"
 }
 
 type TimePeriod = 'night' | 'predawn' | 'dawn' | 'morning' | 'midday' | 'afternoon' | 'golden' | 'dusk';
 
 function getLocalHour(timezone?: string): number {
   try {
-    if (!timezone) return new Date().getHours();
-    const str = new Date().toLocaleString('en-US', { timeZone: timezone, hour: 'numeric', hour12: false });
-    const h = parseInt(str, 10);
-    return isNaN(h) ? new Date().getHours() : h % 24;
+    if (!timezone) return new Date().getHours() + new Date().getMinutes() / 60;
+    const str = new Date().toLocaleString('en-US', {
+      timeZone: timezone, hour: 'numeric', minute: '2-digit', hour12: false,
+    });
+    // "14:37" or "2:37"
+    const [h, m] = str.split(':').map(Number);
+    return (isNaN(h) ? new Date().getHours() : h % 24) + (isNaN(m) ? 0 : m / 60);
   } catch {
-    return new Date().getHours();
+    return new Date().getHours() + new Date().getMinutes() / 60;
   }
 }
 
-function getTimePeriod(hour: number): TimePeriod {
-  if (hour >= 21 || hour < 4)  return 'night';
-  if (hour < 6)                return 'predawn';
-  if (hour < 7.5)              return 'dawn';
-  if (hour < 11)               return 'morning';
-  if (hour < 14)               return 'midday';
-  if (hour < 17)               return 'afternoon';
-  if (hour < 19)               return 'golden';
+// Parse "2026-05-03T05:34" → fractional hour (5.567)
+function parseHour(timeStr?: string, fallback = 6): number {
+  if (!timeStr) return fallback;
+  const t = timeStr.split('T')[1];
+  if (!t) return fallback;
+  const [h, m] = t.split(':').map(Number);
+  return (isNaN(h) ? fallback : h) + (isNaN(m) ? 0 : m / 60);
+}
+
+function getTimePeriod(hour: number, riseH: number, setH: number): TimePeriod {
+  const dawn    = riseH - 1.5;
+  const morning = riseH + 1.5;
+  const midday  = (riseH + setH) / 2 - 1;
+  const mid2    = (riseH + setH) / 2 + 1;
+  const golden  = setH - 1.5;
+  const dusk    = setH + 1;
+
+  if (hour >= dusk || hour < dawn)   return 'night';
+  if (hour < riseH)                  return hour < dawn + 0.5 ? 'predawn' : 'dawn';
+  if (hour < morning)                return 'morning';
+  if (hour < midday)                 return 'morning';
+  if (hour < mid2)                   return 'midday';
+  if (hour < golden)                 return 'afternoon';
+  if (hour < setH)                   return 'golden';
   return 'dusk';
 }
 
@@ -52,30 +73,44 @@ const WEATHER_OVERLAYS: Record<string, string> = {
   snow:    'rgba(219,234,254,0.12)',
 };
 
-// Sun arc: rises left at 6 AM, peaks center at noon, sets right at 8 PM
-function getSunPosition(hour: number): { x: number; y: number } | null {
-  if (hour < 5.5 || hour > 20.5) return null;
-  const t = (hour - 5.5) / 15;
+// ── Sun arc: sunrise (left) → solar noon (top-centre) → sunset (right) ────────
+// After sunset, sun is hidden — next day it reappears from the left again (loop)
+function getSunPosition(
+  hour: number,
+  riseH: number,
+  setH: number,
+): { x: number; y: number } | null {
+  if (hour < riseH || hour > setH) return null;
+  const dayLen = setH - riseH;
+  const t = (hour - riseH) / dayLen; // 0 = sunrise, 1 = sunset
   const x = 6 + t * 88;
-  const arc = Math.sin(t * Math.PI);
-  const y = 5 + (1 - arc) * 40;
+  const y = 5 + (1 - Math.sin(t * Math.PI)) * 40;
   return { x, y };
 }
 
-// Moon arc: rises left at 8 PM, peaks center at midnight, sets right at 5 AM
-function getMoonPosition(hour: number): { x: number; y: number } | null {
-  let progress: number;
-  if (hour >= 20)       progress = (hour - 20) / 9;      // 8 PM → midnight part
-  else if (hour < 5)    progress = (hour + 4) / 9;        // midnight → 5 AM part
-  else                  return null;                       // daytime, no moon
-
-  const x = 6 + progress * 86;
-  const arc = Math.sin(progress * Math.PI);
-  const y = 4 + (1 - arc) * 32;
+// ── Moon arc: sunset (left) → midnight (top-centre) → sunrise (right) ─────────
+// Mirror of sun: when sun sets right, moon rises left; when moon sets right, sun rises left
+function getMoonPosition(
+  hour: number,
+  riseH: number,
+  setH: number,
+): { x: number; y: number } | null {
+  const nightLen = 24 - setH + riseH; // hours of darkness
+  let t: number;
+  if (hour >= setH) {
+    t = (hour - setH) / nightLen;
+  } else if (hour < riseH) {
+    t = (24 - setH + hour) / nightLen;
+  } else {
+    return null; // daytime
+  }
+  t = Math.max(0, Math.min(1, t));
+  const x = 6 + t * 88;
+  const y = 4 + (1 - Math.sin(t * Math.PI)) * 34;
   return { x, y };
 }
 
-// ── Star field ────────────────────────────────────────────────────────────────
+// ── Stars ─────────────────────────────────────────────────────────────────────
 function StarField({ opacity = 1 }: { opacity?: number }) {
   const [stars] = useState(() =>
     Array.from({ length: 160 }, (_, i) => ({
@@ -89,7 +124,8 @@ function StarField({ opacity = 1 }: { opacity?: number }) {
   );
   return (
     <motion.div className="absolute inset-0"
-      initial={{ opacity: 0 }} animate={{ opacity }} transition={{ duration: 2 }}
+      initial={{ opacity: 0 }} animate={{ opacity }} exit={{ opacity: 0 }}
+      transition={{ duration: 2 }}
     >
       <svg className="w-full h-full" style={{ pointerEvents: 'none' }}>
         {stars.map(s => (
@@ -104,35 +140,35 @@ function StarField({ opacity = 1 }: { opacity?: number }) {
   );
 }
 
-// ── Night cloud layer (wispy, atmospheric, like the reference image) ───────────
+// ── Atmospheric night clouds ───────────────────────────────────────────────────
 function NightClouds() {
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none">
       {[
-        { top: '12%', left: '-5%', w: 380, h: 90, opacity: 0.22, dur: 40, delay: 0 },
-        { top: '22%', left: '30%', w: 300, h: 70, opacity: 0.16, dur: 52, delay: 8 },
-        { top: '8%',  left: '55%', w: 260, h: 60, opacity: 0.14, dur: 38, delay: 4 },
-        { top: '32%', left: '-10%',w: 420, h: 80, opacity: 0.10, dur: 60, delay: 12 },
+        { top: '10%', left: '-5%',  w: 380, opacity: 0.22, dur: 42 },
+        { top: '22%', left: '28%',  w: 300, opacity: 0.16, dur: 55 },
+        { top: '7%',  left: '58%',  w: 260, opacity: 0.14, dur: 38 },
+        { top: '30%', left: '-10%', w: 420, opacity: 0.10, dur: 62 },
       ].map((c, i) => (
         <motion.div key={i}
           className="absolute"
           style={{
             top: c.top, left: c.left,
-            width: c.w, height: c.h,
-            background: 'radial-gradient(ellipse 70% 40% at 50% 50%, rgba(100,130,200,0.6) 0%, rgba(60,80,160,0.3) 50%, transparent 100%)',
+            width: c.w, height: c.w * 0.32,
+            background: 'radial-gradient(ellipse 70% 40% at 50% 50%, rgba(90,120,200,0.55) 0%, rgba(50,70,150,0.25) 55%, transparent 100%)',
             opacity: c.opacity,
-            filter: 'blur(18px)',
+            filter: 'blur(20px)',
             borderRadius: '50%',
           }}
-          animate={{ x: [0, 40, 0] }}
-          transition={{ duration: c.dur, repeat: Infinity, ease: 'easeInOut', delay: c.delay }}
+          animate={{ x: [0, 35, 0] }}
+          transition={{ duration: c.dur, repeat: Infinity, ease: 'easeInOut', delay: i * 3 }}
         />
       ))}
     </div>
   );
 }
 
-// ── Moon element (large, glowing, arcs across sky) ────────────────────────────
+// ── Moon (large, glowing crescent) ────────────────────────────────────────────
 function MoonElement({ x, y }: { x: number; y: number }) {
   return (
     <motion.div
@@ -145,52 +181,43 @@ function MoonElement({ x, y }: { x: number; y: number }) {
     >
       <svg width="100" height="100" viewBox="0 0 100 100" style={{ overflow: 'visible' }}>
         <defs>
-          <radialGradient id="moon-surface" cx="38%" cy="32%" r="62%">
+          <radialGradient id="moon-surf" cx="38%" cy="32%" r="62%">
             <stop offset="0%" stopColor="#f8fafc" />
-            <stop offset="50%" stopColor="#e2e8f0" />
+            <stop offset="55%" stopColor="#e2e8f0" />
             <stop offset="100%" stopColor="#94a3b8" />
           </radialGradient>
-          <radialGradient id="moon-halo" cx="50%" cy="50%" r="50%">
-            <stop offset="0%"   stopColor="rgba(226,232,240,0.25)" />
-            <stop offset="50%"  stopColor="rgba(148,163,184,0.08)" />
+          <radialGradient id="moon-halo-r" cx="50%" cy="50%" r="50%">
+            <stop offset="0%"   stopColor="rgba(226,232,240,0.22)" />
+            <stop offset="55%"  stopColor="rgba(148,163,184,0.07)" />
             <stop offset="100%" stopColor="rgba(148,163,184,0)" />
           </radialGradient>
-          <radialGradient id="moon-glow-outer" cx="50%" cy="50%" r="50%">
-            <stop offset="0%"   stopColor="rgba(255,255,255,0.06)" />
+          <radialGradient id="moon-outer-r" cx="50%" cy="50%" r="50%">
+            <stop offset="0%"   stopColor="rgba(255,255,255,0.05)" />
             <stop offset="100%" stopColor="rgba(255,255,255,0)" />
           </radialGradient>
-          <filter id="moon-soft">
+          <filter id="moon-f">
             <feGaussianBlur stdDeviation="1.5" result="b" />
             <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
           </filter>
         </defs>
-
-        {/* Wide atmospheric halo */}
-        <motion.circle cx="50" cy="50" r="70" fill="url(#moon-glow-outer)"
-          animate={{ r: [70, 76, 70] }}
-          transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
-        />
-        {/* Inner halo */}
-        <motion.circle cx="50" cy="50" r="46" fill="url(#moon-halo)"
-          animate={{ r: [46, 50, 46] }}
-          transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
-        />
-        {/* Moon disc */}
-        <circle cx="50" cy="50" r="28" fill="url(#moon-surface)" filter="url(#moon-soft)" />
-        {/* Crescent shadow (dark circle offset to create crescent) */}
-        <circle cx="60" cy="45" r="22" fill="#0d1420" />
-        {/* Crater details */}
-        <circle cx="34" cy="44" r="3.5" fill="rgba(0,0,0,0.09)" />
+        <motion.circle cx="50" cy="50" r="72" fill="url(#moon-outer-r)"
+          animate={{ r: [72, 78, 72] }} transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }} />
+        <motion.circle cx="50" cy="50" r="46" fill="url(#moon-halo-r)"
+          animate={{ r: [46, 51, 46] }} transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }} />
+        <circle cx="50" cy="50" r="28" fill="url(#moon-surf)" filter="url(#moon-f)" />
+        {/* Crescent shadow */}
+        <circle cx="60" cy="46" r="22" fill="#0c1320" />
+        {/* Craters */}
+        <circle cx="34" cy="44" r="3.5" fill="rgba(0,0,0,0.08)" />
         <circle cx="28" cy="55" r="2.2" fill="rgba(0,0,0,0.07)" />
         <circle cx="40" cy="60" r="2.8" fill="rgba(0,0,0,0.06)" />
-        {/* Surface highlight */}
-        <ellipse cx="38" cy="40" rx="7" ry="5" fill="rgba(255,255,255,0.18)" />
+        <ellipse cx="38" cy="40" rx="7" ry="4.5" fill="rgba(255,255,255,0.17)" />
       </svg>
     </motion.div>
   );
 }
 
-// ── Sun element (arcs across sky left → center top → right) ──────────────────
+// ── Sun (warm, rotating rays) ──────────────────────────────────────────────────
 function SunElement({ x, y }: { x: number; y: number }) {
   return (
     <motion.div
@@ -198,107 +225,97 @@ function SunElement({ x, y }: { x: number; y: number }) {
       style={{ left: `${x}%`, top: `${y}%`, transform: 'translate(-50%, -50%)' }}
       initial={{ opacity: 0, scale: 0.5 }}
       animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0 }}
+      exit={{ opacity: 0, scale: 0.6 }}
       transition={{ duration: 1.5 }}
     >
       <svg width="90" height="90" viewBox="0 0 90 90" style={{ overflow: 'visible' }}>
         <defs>
-          <radialGradient id="sun-core" cx="42%" cy="35%" r="62%">
+          <radialGradient id="sun-core-r" cx="42%" cy="35%" r="62%">
             <stop offset="0%" stopColor="#fffde7" />
             <stop offset="45%" stopColor="#fde68a" />
             <stop offset="100%" stopColor="#f59e0b" />
           </radialGradient>
-          <radialGradient id="sun-ambient" cx="50%" cy="50%" r="50%">
+          <radialGradient id="sun-amb-r" cx="50%" cy="50%" r="50%">
             <stop offset="0%"   stopColor="rgba(251,191,36,0.35)" />
             <stop offset="60%"  stopColor="rgba(251,191,36,0.08)" />
             <stop offset="100%" stopColor="rgba(251,191,36,0)" />
           </radialGradient>
-          <filter id="sun-glow">
+          <filter id="sun-f">
             <feGaussianBlur stdDeviation="4" result="b" />
             <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
           </filter>
         </defs>
-        {/* Ambient glow */}
-        <motion.circle cx="45" cy="45" r="44" fill="url(#sun-ambient)"
-          animate={{ r: [44, 48, 44] }}
-          transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-        />
-        {/* Rotating rays */}
+        <motion.circle cx="45" cy="45" r="44" fill="url(#sun-amb-r)"
+          animate={{ r: [44, 48, 44] }} transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }} />
         <motion.g
           animate={{ rotate: 360 }}
           transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
           style={{ transformOrigin: '45px 45px' }}
         >
           {Array.from({ length: 12 }).map((_, i) => {
-            const angle = (i * 30 * Math.PI) / 180;
-            const r1 = 24, r2 = i % 2 === 0 ? 38 : 33;
+            const a = (i * 30 * Math.PI) / 180;
+            const r2 = i % 2 === 0 ? 38 : 33;
             return (
               <line key={i}
-                x1={45 + r1 * Math.cos(angle)} y1={45 + r1 * Math.sin(angle)}
-                x2={45 + r2 * Math.cos(angle)} y2={45 + r2 * Math.sin(angle)}
+                x1={45 + 24 * Math.cos(a)} y1={45 + 24 * Math.sin(a)}
+                x2={45 + r2 * Math.cos(a)} y2={45 + r2 * Math.sin(a)}
                 stroke="#fde68a" strokeWidth={i % 2 === 0 ? 2.5 : 1.5}
-                strokeLinecap="round" opacity={i % 2 === 0 ? 0.75 : 0.45}
+                strokeLinecap="round" opacity={i % 2 === 0 ? 0.8 : 0.45}
               />
             );
           })}
         </motion.g>
-        {/* Disc */}
-        <motion.circle cx="45" cy="45" r="20" fill="url(#sun-core)" filter="url(#sun-glow)"
-          animate={{ r: [20, 21.5, 20] }}
-          transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
-        />
+        <motion.circle cx="45" cy="45" r="20" fill="url(#sun-core-r)" filter="url(#sun-f)"
+          animate={{ r: [20, 21.5, 20] }} transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }} />
         <ellipse cx="38" cy="38" rx="7" ry="5" fill="rgba(255,255,255,0.3)" />
       </svg>
     </motion.div>
   );
 }
 
-// ── Main component ────────────────────────────────────────────────────────────
-export default function WeatherBackground({ particleType, isDay, timezone }: Props) {
+// ── Main component ─────────────────────────────────────────────────────────────
+export default function WeatherBackground({ particleType, isDay, timezone, sunrise, sunset }: Props) {
   const [hour, setHour] = useState(() => getLocalHour(timezone));
 
   useEffect(() => {
     const update = () => setHour(getLocalHour(timezone));
     update();
-    const id = setInterval(update, 60000);
+    const id = setInterval(update, 30000); // refresh every 30s for smooth tracking
     return () => clearInterval(id);
   }, [timezone]);
 
-  const period     = getTimePeriod(hour);
-  const gradient   = TIME_GRADIENTS[period];
-  const overlay    = WEATHER_OVERLAYS[particleType] ?? 'rgba(0,0,0,0)';
-  const sunPos     = getSunPosition(hour);
-  const moonPos    = getMoonPosition(hour);
-  const isNight    = period === 'night' || period === 'predawn';
-  const isDusk     = period === 'dusk';
-  const showStars  = isNight;
-  const showMoon   = moonPos !== null;
-  const showSun    = isDay === 1 && sunPos !== null && particleType !== 'storm';
+  // Use actual sunrise/sunset from API, fallback to sensible defaults
+  const riseH = parseHour(sunrise, 6.0);
+  const setH  = parseHour(sunset, 20.0);
+
+  const period   = getTimePeriod(hour, riseH, setH);
+  const gradient = TIME_GRADIENTS[period];
+  const overlay  = WEATHER_OVERLAYS[particleType] ?? 'rgba(0,0,0,0)';
+  const sunPos   = getSunPosition(hour, riseH, setH);
+  const moonPos  = getMoonPosition(hour, riseH, setH);
+  const isNight  = period === 'night' || period === 'predawn';
+  const showSun  = sunPos !== null && particleType !== 'storm';
+  const showMoon = moonPos !== null;
 
   return (
     <div className="fixed inset-0 z-0 overflow-hidden">
 
       {/* Time-based sky gradient */}
-      <motion.div
-        className="absolute inset-0"
-        style={{ background: gradient, transition: 'background 4s ease' }}
-      />
+      <div className="absolute inset-0" style={{ background: gradient, transition: 'background 4s ease' }} />
 
-      {/* Weather condition overlay */}
-      <div className="absolute inset-0"
-        style={{ background: overlay, transition: 'background 2s ease' }}
-      />
+      {/* Weather overlay */}
+      <div className="absolute inset-0" style={{ background: overlay, transition: 'background 2s ease' }} />
 
-      {/* Stars (night / predawn only) */}
+      {/* Stars — only at night */}
       <AnimatePresence>
-        {showStars && (
-          <StarField opacity={particleType === 'clear' ? 0.95 : 0.45} />
+        {isNight && (
+          <StarField opacity={particleType === 'storm' ? 0 : particleType === 'clear' ? 0.95 : 0.5} />
         )}
       </AnimatePresence>
 
-      {/* Night atmospheric clouds */}
+      {/* Atmospheric night clouds */}
       <AnimatePresence>
-        {(isNight || isDusk) && (
+        {(isNight || period === 'dusk') && (
           <motion.div className="absolute inset-0"
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             transition={{ duration: 3 }}
@@ -308,17 +325,17 @@ export default function WeatherBackground({ particleType, isDay, timezone }: Pro
         )}
       </AnimatePresence>
 
-      {/* Moon (arcs left → center → right during night hours) */}
+      {/* ── MOON: rises left at sunset, sets right at sunrise (continuous loop) ── */}
       <AnimatePresence>
-        {showMoon && <MoonElement x={moonPos!.x} y={moonPos!.y} />}
+        {showMoon && <MoonElement key="moon" x={moonPos!.x} y={moonPos!.y} />}
       </AnimatePresence>
 
-      {/* Sun (arcs left → center → right during day hours) */}
+      {/* ── SUN: rises left at sunrise, sets right at sunset (continuous loop) ── */}
       <AnimatePresence>
-        {showSun && sunPos && <SunElement x={sunPos.x} y={sunPos.y} />}
+        {showSun && sunPos && <SunElement key="sun" x={sunPos.x} y={sunPos.y} />}
       </AnimatePresence>
 
-      {/* Horizon glow (dawn / golden hour / dusk) */}
+      {/* Horizon glow (dawn / golden / dusk) */}
       {(period === 'dawn' || period === 'golden' || period === 'dusk') && (
         <div className="absolute bottom-0 left-0 right-0 h-52 pointer-events-none"
           style={{
@@ -331,7 +348,7 @@ export default function WeatherBackground({ particleType, isDay, timezone }: Pro
         />
       )}
 
-      {/* Day cloud layers (cloudy / fog) */}
+      {/* Day clouds (cloudy / fog) */}
       {(particleType === 'cloudy' || particleType === 'fog') && !isNight && (
         <div className="absolute inset-0 overflow-hidden">
           {[
@@ -354,7 +371,7 @@ export default function WeatherBackground({ particleType, isDay, timezone }: Pro
         </div>
       )}
 
-      {/* Rain blue cap overlay */}
+      {/* Rain cap */}
       {(particleType === 'rain' || particleType === 'drizzle') && (
         <div className="absolute top-0 left-0 right-0 h-48"
           style={{ background: 'linear-gradient(180deg, rgba(30,64,175,0.28) 0%, transparent 100%)' }}
@@ -364,7 +381,7 @@ export default function WeatherBackground({ particleType, isDay, timezone }: Pro
       {/* Storm lightning flash */}
       {particleType === 'storm' && (
         <motion.div className="absolute inset-0"
-          animate={{ opacity: [0, 0, 0, 0.07, 0, 0.04, 0] }}
+          animate={{ opacity: [0, 0, 0, 0.08, 0, 0.04, 0] }}
           transition={{ duration: 6, repeat: Infinity, times: [0, 0.6, 0.65, 0.67, 0.69, 0.72, 1] }}
           style={{ background: 'rgba(255,255,255,1)' }}
         />
@@ -375,7 +392,7 @@ export default function WeatherBackground({ particleType, isDay, timezone }: Pro
         style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.5) 0%, transparent 100%)' }}
       />
 
-      {/* Film grain / noise */}
+      {/* Noise */}
       <div className="absolute inset-0 opacity-[0.025] pointer-events-none"
         style={{
           backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,
