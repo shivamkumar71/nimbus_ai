@@ -1,5 +1,5 @@
 """
-Pydantic models for SkyPulse Weather API.
+Pydantic models for Nimbus Weather API.
 All response shapes are strongly typed for automatic validation and OpenAPI docs.
 """
 
@@ -74,6 +74,7 @@ class HourlyWeather(BaseModel):
     uv_index: list[float]
     relative_humidity_2m: list[int]
     visibility: list[float]
+    is_day: list[int]
 
 
 class DailyWeather(BaseModel):

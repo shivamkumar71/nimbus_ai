@@ -1,6 +1,7 @@
 """
 WeatherService — async HTTP client wrapper around Open-Meteo APIs.
 All network I/O uses httpx for async support compatible with FastAPI.
+Part of the Nimbus Weather API.
 """
 
 from typing import Optional
@@ -32,7 +33,7 @@ CURRENT_VARS = ",".join([
 HOURLY_VARS = ",".join([
     "temperature_2m", "apparent_temperature", "precipitation_probability",
     "precipitation", "weather_code", "wind_speed_10m", "uv_index",
-    "relative_humidity_2m", "visibility",
+    "relative_humidity_2m", "visibility", "is_day",
 ])
 
 DAILY_VARS = ",".join([
@@ -81,7 +82,7 @@ class WeatherService:
             resp = await self.client.get(
                 NOMINATIM_BASE,
                 params={"lat": lat, "lon": lon, "format": "json", "addressdetails": 1},
-                headers={"Accept-Language": "en", "User-Agent": "SkyPulse/1.0"},
+                headers={"Accept-Language": "en", "User-Agent": "Nimbus/1.0"},
             )
             resp.raise_for_status()
             data = resp.json()
@@ -154,6 +155,7 @@ class WeatherService:
                 uv_index=hrly["uv_index"],
                 relative_humidity_2m=hrly["relative_humidity_2m"],
                 visibility=hrly["visibility"],
+                is_day=hrly["is_day"],
             ),
             daily=DailyWeather(
                 time=dly["time"],

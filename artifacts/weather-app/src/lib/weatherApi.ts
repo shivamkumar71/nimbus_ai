@@ -48,6 +48,7 @@ export interface HourlyWeather {
   uv_index: number[];
   relative_humidity_2m: number[];
   visibility: number[];
+  is_day: number[];
 }
 
 export interface DailyWeather {
@@ -264,7 +265,7 @@ export function formatDay(dateStr: string): string {
 }
 
 export function getHourlyDataForNext24h(hourly: HourlyWeather): {
-  time: string; temp: number; code: number; precipProb: number; wind: number;
+  time: string; temp: number; code: number; precipProb: number; wind: number; isDay: number;
 }[] {
   const now = new Date();
   const results = [];
@@ -277,6 +278,7 @@ export function getHourlyDataForNext24h(hourly: HourlyWeather): {
         code: hourly.weather_code[i],
         precipProb: hourly.precipitation_probability[i],
         wind: hourly.wind_speed_10m[i],
+        isDay: hourly.is_day?.[i] ?? 1,
       });
     }
   }

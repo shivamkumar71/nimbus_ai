@@ -279,7 +279,7 @@ export default function WeatherPage() {
                       ? '#93c5fd' : 'rgba(255,255,255,0.6)',
                   }}
                 >
-                  ⭐ {loc.name}
+                  ★ {loc.name}
                 </button>
               ))}
             </div>
@@ -296,10 +296,10 @@ export default function WeatherPage() {
               className="flex flex-col items-center justify-center py-32 gap-6"
             >
               <div className="relative">
-                <div className="w-20 h-20 rounded-3xl flex items-center justify-center text-4xl"
+                <div className="w-20 h-20 rounded-3xl flex items-center justify-center"
                   style={{ background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.3)' }}
                 >
-                  🌍
+                  <Cloud className="w-9 h-9 text-blue-400" />
                 </div>
                 <div className="absolute -right-1 -bottom-1 w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center">
                   <Loader2 className="w-3 h-3 text-white animate-spin" />

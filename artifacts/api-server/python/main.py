@@ -1,6 +1,6 @@
 """
-SkyPulse Weather API — Python FastAPI Backend
-Fetches, processes, and serves weather data for the SkyPulse frontend.
+Nimbus Weather API — Python FastAPI Backend
+Fetches, processes, and serves weather data for the Nimbus frontend.
 Includes ML-based temperature trend prediction using NumPy + scikit-learn.
 """
 
@@ -34,8 +34,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="SkyPulse Weather API",
-    description="Python-powered weather data API for SkyPulse — built with FastAPI, NumPy, and scikit-learn.",
+    title="Nimbus Weather API",
+    description="Python-powered weather data API for Nimbus — built with FastAPI, NumPy, and scikit-learn.",
     version="1.0.0",
     lifespan=lifespan,
 )
@@ -53,7 +53,7 @@ app.add_middleware(
 
 @app.get("/api/healthz", response_model=HealthResponse)
 async def health():
-    return HealthResponse(status="ok", service="SkyPulse Weather API", language="Python 3.12 + FastAPI")
+    return HealthResponse(status="ok", service="Nimbus Weather API", language="Python 3.12 + FastAPI")
 
 
 @app.get("/api/geocode", response_model=GeocodingResponse)

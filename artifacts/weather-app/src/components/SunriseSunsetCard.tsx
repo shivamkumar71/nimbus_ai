@@ -7,31 +7,61 @@ interface Props {
   timezone: string;
 }
 
-function fmtTime(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+// Parse "2026-05-03T05:28" → minutes since midnight (location-local time already)
+function parseMinutes(iso: string): number {
+  const t = iso.split('T')[1] ?? '00:00';
+  const [h, m] = t.split(':').map(Number);
+  return (isNaN(h) ? 0 : h) * 60 + (isNaN(m) ? 0 : m);
 }
 
-function getDayProgress(sunrise: string, sunset: string): number {
-  const now = Date.now();
-  const sr = new Date(sunrise).getTime();
-  const ss = new Date(sunset).getTime();
-  if (now < sr) return 0;
-  if (now > ss) return 1;
-  return (now - sr) / (ss - sr);
+// Format "2026-05-03T05:28" → "5:28 AM"
+function fmtTime(iso: string): string {
+  const t = iso.split('T')[1] ?? '00:00';
+  const [hStr, mStr] = t.split(':');
+  const h = parseInt(hStr, 10);
+  const m = parseInt(mStr, 10);
+  const suffix = h >= 12 ? 'PM' : 'AM';
+  const displayH = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return `${displayH}:${m.toString().padStart(2, '0')} ${suffix}`;
+}
+
+// Get current time as minutes-since-midnight in the location's timezone
+function getCurrentMinutesInTz(timezone: string): number {
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).formatToParts(new Date());
+    const h = parseInt(parts.find(p => p.type === 'hour')?.value ?? '0', 10);
+    const m = parseInt(parts.find(p => p.type === 'minute')?.value ?? '0', 10);
+    return (h % 24) * 60 + m;
+  } catch {
+    return new Date().getHours() * 60 + new Date().getMinutes();
+  }
+}
+
+function getDayProgress(sunrise: string, sunset: string, timezone: string): number {
+  const nowMin = getCurrentMinutesInTz(timezone);
+  const srMin = parseMinutes(sunrise);
+  const ssMin = parseMinutes(sunset);
+  if (nowMin < srMin) return 0;
+  if (nowMin >= ssMin) return 1;
+  return (nowMin - srMin) / (ssMin - srMin);
 }
 
 function getDayLength(sunrise: string, sunset: string): string {
-  const sr = new Date(sunrise).getTime();
-  const ss = new Date(sunset).getTime();
-  const diff = ss - sr;
-  const h = Math.floor(diff / 3600000);
-  const m = Math.floor((diff % 3600000) / 60000);
+  const srMin = parseMinutes(sunrise);
+  const ssMin = parseMinutes(sunset);
+  const diff = ssMin - srMin;
+  const h = Math.floor(diff / 60);
+  const m = diff % 60;
   return `${h}h ${m}m`;
 }
 
-export default function SunriseSunsetCard({ sunrise, sunset }: Props) {
-  const progress = getDayProgress(sunrise, sunset);
+export default function SunriseSunsetCard({ sunrise, sunset, timezone }: Props) {
+  const progress = getDayProgress(sunrise, sunset, timezone);
   const dayLen = getDayLength(sunrise, sunset);
   const isDay = progress > 0 && progress < 1;
 
@@ -50,7 +80,6 @@ export default function SunriseSunsetCard({ sunrise, sunset }: Props) {
   const sunPos = polarToXY(progress);
   const srPos = polarToXY(0);
   const ssPos = polarToXY(1);
-
   const progressArcEnd = polarToXY(Math.min(progress, 0.999));
 
   return (
@@ -149,34 +178,19 @@ export default function SunriseSunsetCard({ sunrise, sunset }: Props) {
           <circle cx={ssPos.x} cy={ssPos.y} r="4" fill="rgba(251,146,60,0.4)" />
           <circle cx={ssPos.x} cy={ssPos.y} r="2.5" fill="#fb923c" />
 
-          {/* ── Blinking Sun ── */}
+          {/* ── Animated Sun (daytime) ── */}
           {isDay && (
             <g filter="url(#sunPulseGlow)">
-              {/* Outer pulse ring 1 */}
-              <motion.circle
-                cx={sunPos.x}
-                cy={sunPos.y}
-                r="14"
-                fill="none"
-                stroke="rgba(251,191,36,0.35)"
-                strokeWidth="1"
-                initial={{ r: 8, opacity: 0.6 }}
+              <motion.circle cx={sunPos.x} cy={sunPos.y} r="14" fill="none"
+                stroke="rgba(251,191,36,0.35)" strokeWidth="1"
                 animate={{ r: [8, 18, 8], opacity: [0.5, 0, 0.5] }}
                 transition={{ duration: 2, repeat: Infinity, ease: 'easeOut' }}
               />
-              {/* Outer pulse ring 2 (offset) */}
-              <motion.circle
-                cx={sunPos.x}
-                cy={sunPos.y}
-                r="10"
-                fill="none"
-                stroke="rgba(251,191,36,0.5)"
-                strokeWidth="1.5"
-                initial={{ r: 6, opacity: 0.7 }}
+              <motion.circle cx={sunPos.x} cy={sunPos.y} r="10" fill="none"
+                stroke="rgba(251,191,36,0.5)" strokeWidth="1.5"
                 animate={{ r: [6, 14, 6], opacity: [0.6, 0, 0.6] }}
                 transition={{ duration: 2, repeat: Infinity, ease: 'easeOut', delay: 0.4 }}
               />
-              {/* Sun rays (8 rays, rotating slowly) */}
               <motion.g
                 animate={{ rotate: 360 }}
                 transition={{ duration: 12, repeat: Infinity, ease: 'linear' }}
@@ -185,63 +199,53 @@ export default function SunriseSunsetCard({ sunrise, sunset }: Props) {
                 {Array.from({ length: 8 }).map((_, i) => {
                   const angle = (i / 8) * Math.PI * 2;
                   const r1 = 8, r2 = 13;
-                  const x1 = sunPos.x + r1 * Math.cos(angle);
-                  const y1 = sunPos.y + r1 * Math.sin(angle);
-                  const x2 = sunPos.x + r2 * Math.cos(angle);
-                  const y2 = sunPos.y + r2 * Math.sin(angle);
                   return (
-                    <line
-                      key={i}
-                      x1={x1} y1={y1}
-                      x2={x2} y2={y2}
-                      stroke="rgba(251,191,36,0.55)"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
+                    <line key={i}
+                      x1={sunPos.x + r1 * Math.cos(angle)} y1={sunPos.y + r1 * Math.sin(angle)}
+                      x2={sunPos.x + r2 * Math.cos(angle)} y2={sunPos.y + r2 * Math.sin(angle)}
+                      stroke="rgba(251,191,36,0.55)" strokeWidth="1.5" strokeLinecap="round"
                     />
                   );
                 })}
               </motion.g>
-              {/* Inner glow halo */}
-              <circle
-                cx={sunPos.x}
-                cy={sunPos.y}
-                r="7"
-                fill="rgba(251,191,36,0.25)"
-              />
-              {/* Sun core */}
-              <motion.circle
-                cx={sunPos.x}
-                cy={sunPos.y}
-                r="5"
-                fill="#fde68a"
+              <circle cx={sunPos.x} cy={sunPos.y} r="7" fill="rgba(251,191,36,0.25)" />
+              <motion.circle cx={sunPos.x} cy={sunPos.y} r="5" fill="#fde68a"
                 animate={{ opacity: [1, 0.75, 1] }}
                 transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
                 style={{ filter: 'drop-shadow(0 0 4px rgba(251,191,36,1))' }}
               />
-              {/* Bright center */}
-              <circle
-                cx={sunPos.x}
-                cy={sunPos.y}
-                r="2.5"
-                fill="white"
-                opacity={0.9}
-              />
+              <circle cx={sunPos.x} cy={sunPos.y} r="2.5" fill="white" opacity={0.9} />
             </g>
           )}
 
-          {/* Night / pre-dawn moon indicator */}
+          {/* ── SVG crescent moon (night) — no emoji ── */}
           {!isDay && (
-            <motion.text
-              x={cx}
-              y={H * 0.45}
-              textAnchor="middle"
-              fontSize="20"
+            <motion.g
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.8 }}
             >
-              🌙
-            </motion.text>
+              <defs>
+                <mask id="ss-moon-mask">
+                  <circle cx={cx} cy={H * 0.42} r="13" fill="white" />
+                  <circle cx={cx + 8} cy={H * 0.42 - 4} r="10" fill="black" />
+                </mask>
+              </defs>
+              {/* Moon glow */}
+              <circle cx={cx} cy={H * 0.42} r="20"
+                fill="rgba(186,210,240,0.08)"
+              />
+              {/* Moon disc with crescent cut via mask */}
+              <circle cx={cx} cy={H * 0.42} r="13"
+                fill="#dde8f5"
+                mask="url(#ss-moon-mask)"
+              />
+              {/* Highlight on lit edge */}
+              <ellipse cx={cx - 4} cy={H * 0.42 - 3} rx="4" ry="2.5"
+                fill="rgba(255,255,255,0.3)"
+                mask="url(#ss-moon-mask)"
+              />
+            </motion.g>
           )}
         </svg>
       </div>
