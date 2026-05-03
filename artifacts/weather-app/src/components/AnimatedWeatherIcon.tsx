@@ -129,6 +129,16 @@ export default function AnimatedWeatherIcon({ code, isDay = 1, size = 48, classN
           <stop offset="0%" stopColor="#f1f5f9" />
           <stop offset="100%" stopColor="#94a3b8" />
         </radialGradient>
+        {/* Full moon crescent mask — sky shows through, no black shape */}
+        <mask id={`moon-mask-${uid}`}>
+          <circle cx="34" cy="24" r="14" fill="white" />
+          <circle cx="40" cy="20" r="11" fill="black" />
+        </mask>
+        {/* Partly-night small moon crescent mask */}
+        <mask id={`pmoon-mask-${uid}`}>
+          <circle cx="18" cy="22" r="10" fill="white" />
+          <circle cx="23" cy="18" r="7.5" fill="black" />
+        </mask>
         <filter id={`glow-${uid}`} x="-50%" y="-50%" width="200%" height="200%">
           <feGaussianBlur stdDeviation="2.5" result="blur" />
           <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
@@ -179,18 +189,22 @@ export default function AnimatedWeatherIcon({ code, isDay = 1, size = 48, classN
       {/* ── NIGHT / CLEAR ──────────────────────────────────────────────────── */}
       {type === 'night' && (
         <>
-          {/* Moon glow */}
+          {/* Moon ambient glow */}
           <circle cx="34" cy="24" r="18" fill="rgba(226,232,240,0.08)" />
-          {/* Moon body */}
+          {/* Moon body — crescent via mask, sky shows through */}
           <motion.circle
             cx="34" cy="24" r="14"
             fill={`url(#mg-${uid})`}
             filter={`url(#glow-${uid})`}
+            mask={`url(#moon-mask-${uid})`}
             animate={{ opacity: [1, 0.85, 1] }}
             transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
           />
-          {/* Crescent mask */}
-          <circle cx="40" cy="20" r="11" fill="#0a1525" />
+          {/* Lit-edge highlight */}
+          <ellipse cx="28" cy="19" rx="4" ry="2.5"
+            fill="rgba(255,255,255,0.28)"
+            mask={`url(#moon-mask-${uid})`}
+          />
           {/* Stars */}
           {[{ x: 12, y: 12 }, { x: 55, y: 18 }, { x: 8, y: 36 }, { x: 52, y: 40 }].map((s, i) => (
             <motion.circle key={i} cx={s.x} cy={s.y} r="1.5" fill="white"
@@ -236,9 +250,16 @@ export default function AnimatedWeatherIcon({ code, isDay = 1, size = 48, classN
       {/* ── PARTLY CLOUDY NIGHT ────────────────────────────────────────────── */}
       {type === 'partly-night' && (
         <>
-          {/* Small moon */}
-          <circle cx="18" cy="22" r="10" fill={`url(#mg-${uid})`} />
-          <circle cx="23" cy="18" r="7.5" fill="#0d1b2e" />
+          {/* Small moon — crescent via mask, no black overlay */}
+          <circle cx="18" cy="22" r="10"
+            fill={`url(#mg-${uid})`}
+            mask={`url(#pmoon-mask-${uid})`}
+          />
+          {/* Lit-edge highlight */}
+          <ellipse cx="14" cy="19" rx="2.5" ry="1.5"
+            fill="rgba(255,255,255,0.3)"
+            mask={`url(#pmoon-mask-${uid})`}
+          />
           {/* Cloud */}
           <motion.g
             animate={{ x: [0, 1.5, 0] }}
