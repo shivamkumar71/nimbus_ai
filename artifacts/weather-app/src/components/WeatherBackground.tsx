@@ -168,7 +168,7 @@ function NightClouds() {
   );
 }
 
-// ── Moon (large, glowing crescent) ────────────────────────────────────────────
+// ── Moon (large, glowing crescent — uses mask so no black shapes) ─────────────
 function MoonElement({ x, y }: { x: number; y: number }) {
   return (
     <motion.div
@@ -181,13 +181,13 @@ function MoonElement({ x, y }: { x: number; y: number }) {
     >
       <svg width="100" height="100" viewBox="0 0 100 100" style={{ overflow: 'visible' }}>
         <defs>
-          <radialGradient id="moon-surf" cx="38%" cy="32%" r="62%">
-            <stop offset="0%" stopColor="#f8fafc" />
-            <stop offset="55%" stopColor="#e2e8f0" />
-            <stop offset="100%" stopColor="#94a3b8" />
+          <radialGradient id="moon-surf" cx="35%" cy="30%" r="65%">
+            <stop offset="0%"   stopColor="#f8fafc" />
+            <stop offset="50%"  stopColor="#dde4ef" />
+            <stop offset="100%" stopColor="#8fa0b8" />
           </radialGradient>
           <radialGradient id="moon-halo-r" cx="50%" cy="50%" r="50%">
-            <stop offset="0%"   stopColor="rgba(226,232,240,0.22)" />
+            <stop offset="0%"   stopColor="rgba(220,230,245,0.22)" />
             <stop offset="55%"  stopColor="rgba(148,163,184,0.07)" />
             <stop offset="100%" stopColor="rgba(148,163,184,0)" />
           </radialGradient>
@@ -195,23 +195,40 @@ function MoonElement({ x, y }: { x: number; y: number }) {
             <stop offset="0%"   stopColor="rgba(255,255,255,0.05)" />
             <stop offset="100%" stopColor="rgba(255,255,255,0)" />
           </radialGradient>
+          {/* Mask punches crescent hole — background sky shows through, no black */}
+          <mask id="moon-crescent-mask">
+            <circle cx="50" cy="50" r="29" fill="white" />
+            <circle cx="62" cy="45" r="23" fill="black" />
+          </mask>
           <filter id="moon-f">
-            <feGaussianBlur stdDeviation="1.5" result="b" />
+            <feGaussianBlur stdDeviation="1" result="b" />
             <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
           </filter>
         </defs>
+
+        {/* Wide ambient glow */}
         <motion.circle cx="50" cy="50" r="72" fill="url(#moon-outer-r)"
-          animate={{ r: [72, 78, 72] }} transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }} />
+          animate={{ r: [72, 78, 72] }}
+          transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }} />
+
+        {/* Inner halo */}
         <motion.circle cx="50" cy="50" r="46" fill="url(#moon-halo-r)"
-          animate={{ r: [46, 51, 46] }} transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }} />
-        <circle cx="50" cy="50" r="28" fill="url(#moon-surf)" filter="url(#moon-f)" />
-        {/* Crescent shadow */}
-        <circle cx="60" cy="46" r="22" fill="#0c1320" />
-        {/* Craters */}
-        <circle cx="34" cy="44" r="3.5" fill="rgba(0,0,0,0.08)" />
-        <circle cx="28" cy="55" r="2.2" fill="rgba(0,0,0,0.07)" />
-        <circle cx="40" cy="60" r="2.8" fill="rgba(0,0,0,0.06)" />
-        <ellipse cx="38" cy="40" rx="7" ry="4.5" fill="rgba(255,255,255,0.17)" />
+          animate={{ r: [46, 51, 46] }}
+          transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }} />
+
+        {/* Moon disc — crescent shape via mask (sky shows through, no black circle) */}
+        <circle
+          cx="50" cy="50" r="29"
+          fill="url(#moon-surf)"
+          mask="url(#moon-crescent-mask)"
+          filter="url(#moon-f)"
+        />
+
+        {/* Soft highlight on the lit edge */}
+        <ellipse cx="36" cy="38" rx="7" ry="4.5"
+          fill="rgba(255,255,255,0.22)"
+          mask="url(#moon-crescent-mask)"
+        />
       </svg>
     </motion.div>
   );
