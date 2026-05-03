@@ -74,7 +74,7 @@ const WEATHER_OVERLAYS: Record<string, string> = {
 };
 
 // ── Sun arc: sunrise (left) → solar noon (top-centre) → sunset (right) ────────
-// After sunset, sun is hidden — next day it reappears from the left again (loop)
+// Peak at y≈14% so the sun sits in the visible sky gap above the weather card.
 function getSunPosition(
   hour: number,
   riseH: number,
@@ -84,7 +84,8 @@ function getSunPosition(
   const dayLen = setH - riseH;
   const t = (hour - riseH) / dayLen; // 0 = sunrise, 1 = sunset
   const x = 6 + t * 88;
-  const y = 5 + (1 - Math.sin(t * Math.PI)) * 40;
+  // Peak (t=0.5) → y=14%;  horizon (t=0 or 1) → y=52%
+  const y = 14 + (1 - Math.sin(t * Math.PI)) * 38;
   return { x, y };
 }
 
@@ -106,7 +107,8 @@ function getMoonPosition(
   }
   t = Math.max(0, Math.min(1, t));
   const x = 6 + t * 88;
-  const y = 4 + (1 - Math.sin(t * Math.PI)) * 34;
+  // Peak (t=0.5) → y=13%;  horizon (t=0 or 1) → y=45%
+  const y = 13 + (1 - Math.sin(t * Math.PI)) * 32;
   return { x, y };
 }
 
