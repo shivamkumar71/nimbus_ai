@@ -287,7 +287,7 @@ export default function WeatherPage() {
         </header>
 
         {/* Content */}
-        <main className="max-w-6xl mx-auto px-4 py-6 pb-16">
+        <main className="max-w-6xl mx-auto px-4 pt-2.5 pb-16">
           {/* Loading indicator */}
           {loading && (
             <motion.div
