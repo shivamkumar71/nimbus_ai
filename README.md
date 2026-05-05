@@ -14,9 +14,9 @@
 
 **Enterprise-grade weather forecasting with machine learning temperature prediction, real-time data processing, and stunning visual analytics.**
 
-Live demo: https://skyblue71.netlify.app/
+Live demo: https://nimbus-ai-xir7.onrender.com/
 
-[Live Demo](https://skyblue71.netlify.app/) • [GitHub](https://github.com/shivamkumar71)
+[Live Demo](https://nimbus-ai-xir7.onrender.com/) • [GitHub](https://github.com/shivamkumar71)
 
 ![SkyPulse App Preview](artifacts/weather-app/public/opengraph.jpg)
 
