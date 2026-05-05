@@ -177,8 +177,9 @@ export default function WeatherPage() {
   const desc = weather ? getWeatherDescription(weather.current.weather_code, weather.current.is_day) : null;
 
   return (
-    <div className="min-h-screen relative overflow-x-hidden">
-      {/* Dynamic background */}
+    <>
+      {/* Dynamic background — must live outside any overflow-hidden container
+          so that position:fixed works correctly and the sky/sun never scrolls */}
       {desc ? (
         <>
           <WeatherBackground
@@ -202,6 +203,7 @@ export default function WeatherPage() {
       )}
 
       {/* Main content */}
+      <div className="min-h-screen relative overflow-x-hidden">
       <div className="relative z-10 min-h-screen">
         {/* Header */}
         <header className="sticky top-0 z-40 px-4 py-4"
@@ -422,6 +424,7 @@ export default function WeatherPage() {
           </AnimatePresence>
         </main>
       </div>
-    </div>
+      </div>
+    </>
   );
 }
