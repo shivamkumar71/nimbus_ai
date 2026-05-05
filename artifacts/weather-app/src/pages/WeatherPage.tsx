@@ -106,7 +106,7 @@ export default function WeatherPage() {
       const geo = await reverseGeocode(latitude, longitude).catch(() => null);
       const loc: SavedLocation = geo
         ? { name: geo.name, country: geo.country, admin1: geo.admin1, latitude, longitude }
-        : { name: 'My Location', country: '', latitude, longitude };
+        : { name: 'Current Location', country: '', latitude, longitude };
       await loadWeatherForLocation(loc);
     } catch {
       await loadWeatherForLocation(DEFAULT_LOCATION);

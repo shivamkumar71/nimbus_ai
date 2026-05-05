@@ -160,16 +160,20 @@ class WeatherService:
                 or addr.get("town")
                 or addr.get("village")
                 or addr.get("county")
-                or "Unknown"
+                or "Current Location"
             )
+            # Nominatim may return null values — coerce to string defaults
+            country = addr.get("country") or ""
+            country_code = (addr.get("country_code") or "").upper()
+            admin1 = addr.get("state") or addr.get("region") or None
             return ReverseGeocodeResponse(
                 id=0,
                 name=name,
                 latitude=lat,
                 longitude=lon,
-                country=addr.get("country", ""),
-                country_code=addr.get("country_code", "").upper(),
-                admin1=addr.get("state"),
+                country=country,
+                country_code=country_code,
+                admin1=admin1,
             )
         except Exception:
             return None
