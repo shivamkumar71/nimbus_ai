@@ -4,6 +4,7 @@ All network I/O uses httpx for async support compatible with FastAPI.
 Part of the Nimbus Weather API.
 """
 
+from datetime import datetime, timezone
 from typing import Optional
 import httpx
 
@@ -43,9 +44,76 @@ DAILY_VARS = ",".join([
     "wind_speed_10m_max", "uv_index_max",
 ])
 
-AQI_VARS = ",".join([
+AQI_CURRENT_VARS = ",".join([
     "us_aqi", "pm10", "pm2_5", "carbon_monoxide", "nitrogen_dioxide", "ozone", "dust"
 ])
+
+AQI_HOURLY_VARS = ",".join([
+    "us_aqi", "pm10", "pm2_5", "carbon_monoxide", "nitrogen_dioxide", "ozone", "dust"
+])
+
+
+def _calculate_us_aqi_from_pm25(pm25: float) -> int:
+    """
+    Calculate US AQI from PM2.5 concentration using EPA breakpoints.
+    This serves as a reliable fallback when the model AQI is missing or zero.
+    """
+    breakpoints = [
+        (0.0,   12.0,   0,   50),
+        (12.1,  35.4,   51,  100),
+        (35.5,  55.4,   101, 150),
+        (55.5,  150.4,  151, 200),
+        (150.5, 250.4,  201, 300),
+        (250.5, 350.4,  301, 400),
+        (350.5, 500.4,  401, 500),
+    ]
+    for c_lo, c_hi, i_lo, i_hi in breakpoints:
+        if c_lo <= pm25 <= c_hi:
+            aqi = round((i_hi - i_lo) / (c_hi - c_lo) * (pm25 - c_lo) + i_lo)
+            return max(0, min(500, aqi))
+    return 500 if pm25 > 500 else 0
+
+
+def _calculate_us_aqi_from_pm10(pm10: float) -> int:
+    """
+    Calculate US AQI from PM10 concentration using EPA breakpoints.
+    """
+    breakpoints = [
+        (0,    54,   0,   50),
+        (55,   154,  51,  100),
+        (155,  254,  101, 150),
+        (255,  354,  151, 200),
+        (355,  424,  201, 300),
+        (425,  504,  301, 400),
+        (505,  604,  401, 500),
+    ]
+    for c_lo, c_hi, i_lo, i_hi in breakpoints:
+        if c_lo <= pm10 <= c_hi:
+            aqi = round((i_hi - i_lo) / (c_hi - c_lo) * (pm10 - c_lo) + i_lo)
+            return max(0, min(500, aqi))
+    return 500 if pm10 > 604 else 0
+
+
+def _best_value_from_hourly(times: list, values: list, now_utc: datetime) -> Optional[float]:
+    """
+    Walk backwards through hourly values to find the most recent non-null reading
+    that is not in the future. Looks back up to 6 hours.
+    """
+    best = None
+    for i in range(len(times) - 1, -1, -1):
+        try:
+            t = datetime.fromisoformat(times[i].replace("Z", "+00:00"))
+            if t.tzinfo is None:
+                t = t.replace(tzinfo=timezone.utc)
+            if t > now_utc:
+                continue
+            val = values[i]
+            if val is not None:
+                best = val
+                break
+        except Exception:
+            continue
+    return best
 
 
 class WeatherService:
@@ -174,22 +242,69 @@ class WeatherService:
         )
 
     async def fetch_air_quality(self, lat: float, lon: float) -> AirQualityResponse:
+        """
+        Fetch air quality with improved accuracy:
+        - Requests both current + hourly data with timezone auto-detection
+        - Walks back through recent hourly readings to find the most recent
+          non-null value for each pollutant (avoids stale or missing current values)
+        - If us_aqi is still missing or zero, recalculates it from PM2.5/PM10
+          using EPA breakpoints for the most accurate AQI derivation
+        """
         resp = await self.client.get(OPEN_METEO_AQI, params={
             "latitude": lat,
             "longitude": lon,
-            "current": AQI_VARS,
+            "current": AQI_CURRENT_VARS,
+            "hourly": AQI_HOURLY_VARS,
+            "timezone": "auto",
+            "past_hours": 6,
+            "forecast_hours": 1,
         })
         resp.raise_for_status()
         raw = resp.json()
+
         cur = raw.get("current", {})
+        hrly = raw.get("hourly", {})
+        times = hrly.get("time", [])
+        now_utc = datetime.now(timezone.utc)
+
+        def resolve(current_val, hourly_key: str) -> Optional[float]:
+            """
+            Use current value if it is a valid positive number.
+            Otherwise fall back to the most recent non-null hourly reading.
+            """
+            if current_val is not None and current_val > 0:
+                return current_val
+            if times and hourly_key in hrly:
+                return _best_value_from_hourly(times, hrly[hourly_key], now_utc)
+            return current_val
+
+        us_aqi_raw = resolve(cur.get("us_aqi"), "us_aqi")
+        pm2_5 = resolve(cur.get("pm2_5"), "pm2_5")
+        pm10 = resolve(cur.get("pm10"), "pm10")
+        carbon_monoxide = resolve(cur.get("carbon_monoxide"), "carbon_monoxide")
+        nitrogen_dioxide = resolve(cur.get("nitrogen_dioxide"), "nitrogen_dioxide")
+        ozone = resolve(cur.get("ozone"), "ozone")
+        dust = resolve(cur.get("dust"), "dust")
+
+        # Derive AQI from pollutants if model value is missing or zero
+        us_aqi = us_aqi_raw
+        if (us_aqi is None or us_aqi == 0):
+            candidates = []
+            if pm2_5 is not None and pm2_5 >= 0:
+                candidates.append(_calculate_us_aqi_from_pm25(pm2_5))
+            if pm10 is not None and pm10 >= 0:
+                candidates.append(_calculate_us_aqi_from_pm10(pm10))
+            if candidates:
+                us_aqi = max(candidates)
+
         return AirQualityResponse(
             current=AirQualityCurrent(
-                us_aqi=cur.get("us_aqi"),
-                pm10=cur.get("pm10"),
-                pm2_5=cur.get("pm2_5"),
-                carbon_monoxide=cur.get("carbon_monoxide"),
-                nitrogen_dioxide=cur.get("nitrogen_dioxide"),
-                ozone=cur.get("ozone"),
-                dust=cur.get("dust"),
+                us_aqi=int(round(us_aqi)) if us_aqi is not None else None,
+                pm10=round(pm10, 1) if pm10 is not None else None,
+                pm2_5=round(pm2_5, 1) if pm2_5 is not None else None,
+                carbon_monoxide=round(carbon_monoxide, 1) if carbon_monoxide is not None else None,
+                nitrogen_dioxide=round(nitrogen_dioxide, 1) if nitrogen_dioxide is not None else None,
+                ozone=round(ozone, 1) if ozone is not None else None,
+                dust=round(dust, 1) if dust is not None else None,
             )
         )
