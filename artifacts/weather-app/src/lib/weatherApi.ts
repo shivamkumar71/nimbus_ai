@@ -5,7 +5,7 @@
  */
 
 // Base URL for the Python API — the shared proxy routes /api → Python FastAPI
-const API_BASE = "/api";
+const API_BASE = import.meta.env.VITE_API_BASE || "/api";
 
 export interface GeocodingResult {
   id: number;
