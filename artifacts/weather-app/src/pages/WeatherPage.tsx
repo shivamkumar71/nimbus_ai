@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { RefreshCw, Star, StarOff, Cloud, Loader2 } from "lucide-react";
+import { Loader2, Cloud } from "lucide-react";
 
 import WeatherBackground from "@/components/WeatherBackground";
 import WeatherParticles from "@/components/WeatherParticles";
-import SearchBar from "@/components/SearchBar";
+import WeatherHeader from "@/components/WeatherHeader";
 import CurrentWeatherCard from "@/components/CurrentWeatherCard";
 import HourlyForecast from "@/components/HourlyForecast";
 import DailyForecast from "@/components/DailyForecast";
@@ -24,14 +24,7 @@ import {
   getWeatherDescription, getHourlyDataForNext24h,
   type WeatherData, type AirQualityData, type PredictionData, type GeocodingResult
 } from "@/lib/weatherApi";
-
-interface SavedLocation {
-  name: string;
-  country: string;
-  admin1?: string;
-  latitude: number;
-  longitude: number;
-}
+import type { SavedLocation } from "@/components/WeatherHeader";
 
 const DEFAULT_LOCATION: SavedLocation = {
   name: 'London',
@@ -204,87 +197,20 @@ export default function WeatherPage() {
       {/* Main content */}
       <div className="relative z-10 min-h-screen">
         {/* Header */}
-        <header className="sticky top-0 z-40 px-4 py-4"
-          style={{
-            background: 'rgba(0,0,0,0.2)',
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
-            borderBottom: '1px solid rgba(255,255,255,0.06)',
-          }}
-        >
-          <div className="max-w-6xl mx-auto flex items-center gap-4">
-            {/* Logo */}
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-                style={{ background: 'linear-gradient(135deg, #0ea5e9, #6366f1)' }}
-              >
-                <Cloud className="w-5 h-5 text-white" />
-              </div>
-              <span className="gradient-text font-black text-xl hidden sm:block tracking-tight">Nimbus</span>
-            </div>
-
-            {/* Search */}
-            <div className="flex-1">
-              <SearchBar
-                onSelect={handleSelectLocation}
-                onGeolocate={tryGeolocate}
-                isGeolocating={isGeolocating}
-              />
-            </div>
-
-            {/* Actions */}
-            <div className="flex items-center gap-2 flex-shrink-0">
-              {location && (
-                <button
-                  onClick={toggleFavorite}
-                  data-testid="button-favorite"
-                  className="w-9 h-9 rounded-xl flex items-center justify-center transition-all hover:scale-110"
-                  style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.1)' }}
-                  title={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
-                >
-                  {isFavorited
-                    ? <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-                    : <StarOff className="w-4 h-4 text-white/50" />
-                  }
-                </button>
-              )}
-              <button
-                onClick={() => location && loadWeatherForLocation(location)}
-                disabled={loading}
-                data-testid="button-refresh"
-                className="w-9 h-9 rounded-xl flex items-center justify-center transition-all hover:scale-110 disabled:opacity-50"
-                style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.1)' }}
-                title="Refresh"
-              >
-                <RefreshCw className={`w-4 h-4 text-white/60 ${loading ? 'animate-spin' : ''}`} />
-              </button>
-            </div>
-          </div>
-
-          {/* Saved locations strip */}
-          {savedLocations.length > 0 && (
-            <div className="max-w-6xl mx-auto mt-3 flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
-              {savedLocations.map((loc, i) => (
-                <button
-                  key={i}
-                  onClick={() => loadWeatherForLocation(loc)}
-                  data-testid={`saved-location-${i}`}
-                  className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-                  style={{
-                    background: location?.name === loc.name && location?.country === loc.country
-                      ? 'rgba(59,130,246,0.25)' : 'rgba(255,255,255,0.05)',
-                    border: location?.name === loc.name && location?.country === loc.country
-                      ? '1px solid rgba(96,165,250,0.3)' : '1px solid rgba(255,255,255,0.08)',
-                    color: location?.name === loc.name && location?.country === loc.country
-                      ? '#93c5fd' : 'rgba(255,255,255,0.6)',
-                  }}
-                >
-                  ★ {loc.name}
-                </button>
-              ))}
-            </div>
-          )}
-        </header>
+        <WeatherHeader
+          weatherCode={weather?.current.weather_code}
+          isDay={weather?.current.is_day}
+          location={location}
+          savedLocations={savedLocations}
+          isFavorited={isFavorited}
+          loading={loading}
+          isGeolocating={isGeolocating}
+          onSelect={handleSelectLocation}
+          onGeolocate={tryGeolocate}
+          onToggleFavorite={toggleFavorite}
+          onRefresh={() => location && loadWeatherForLocation(location)}
+          onSelectSaved={loadWeatherForLocation}
+        />
 
         {/* Content */}
         <main className="max-w-6xl mx-auto px-4 py-6 pb-16">
