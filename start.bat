@@ -61,3 +61,4 @@ echo  Both servers are running in separate windows.
 echo  Close those windows to stop the app.
 echo.
 pause
+git init

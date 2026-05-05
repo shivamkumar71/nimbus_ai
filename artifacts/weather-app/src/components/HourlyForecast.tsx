@@ -72,6 +72,8 @@ export default function HourlyForecast({ items }: Props) {
           const isNow = i === 0;
           const hour = new Date(item.time).getHours();
           const itemIsDay = item.isDay !== undefined ? item.isDay : (hour >= 6 && hour < 20 ? 1 : 0);
+          // Force clear night code (0) when it's nighttime to show moon icon regardless of weather
+          const displayCode = itemIsDay === 0 ? 0 : item.code;
 
           return (
             <motion.div
@@ -90,7 +92,7 @@ export default function HourlyForecast({ items }: Props) {
                 {isNow ? 'Now' : formatHour(item.time)}
               </div>
 
-              <AnimatedWeatherIcon code={item.code} isDay={itemIsDay} size={36} />
+              <AnimatedWeatherIcon code={displayCode} isDay={itemIsDay} size={36} />
 
               <div
                 className="font-bold text-sm"

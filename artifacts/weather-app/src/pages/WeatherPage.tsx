@@ -402,20 +402,19 @@ export default function WeatherPage() {
 
                 {/* Footer */}
                 <footer className="mt-8 pt-6 border-t border-white/5">
-                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-white/25 text-xs">
+                  <div className="flex flex-col items-center justify-center gap-3 text-white/30 text-xs">
                     <div className="flex items-center gap-2">
                       <div className="w-5 h-5 rounded-md flex items-center justify-center"
                         style={{ background: 'linear-gradient(135deg, #0ea5e9, #6366f1)' }}
                       >
                         <Cloud className="w-3 h-3 text-white" />
                       </div>
-                      <span className="font-semibold text-white/40">Nimbus</span>
+                      <span className="font-semibold text-white/50">Nimbus</span>
                     </div>
                     <div className="text-center">
-                      Accurate forecasts for every corner of the world
-                    </div>
-                    <div className="text-white/20">
-                      © {new Date().getFullYear()} Nimbus Weather. All rights reserved.
+                      <span className="text-white/40">© {new Date().getFullYear()} Nimbus Weather. All rights reserved.</span>
+                      <span className="mx-2 text-white/20">|</span>
+                      <span className="text-white/50">Designed by Shivam Kumar</span>
                     </div>
                   </div>
                 </footer>
