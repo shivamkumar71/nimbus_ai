@@ -1,9 +1,9 @@
 # Netlify Configuration for SkyPulse Frontend Deployment
 
 [build]
-  base = "artifacts/weather-app/"
-  command = "pnpm install && pnpm run build"
-  publish = "dist"
+  base = "./"
+  command = "pnpm install && pnpm -r --filter=@workspace/weather-app run build"
+  publish = "artifacts/weather-app/dist"
 
 [build.environment]
   NODE_VERSION = "20"
