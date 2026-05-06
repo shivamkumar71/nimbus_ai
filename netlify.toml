@@ -3,7 +3,7 @@
 [build]
   base = "./"
   command = "pnpm install && pnpm -r --filter=@workspace/weather-app run build"
-  publish = "artifacts/weather-app/dist/public"
+  publish = "artifacts/weather-app/dist"
 
 [build.environment]
   NODE_VERSION = "20"

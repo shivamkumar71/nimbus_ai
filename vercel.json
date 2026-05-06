@@ -1,0 +1,8 @@
+{
+  "buildCommand": "pnpm install && pnpm -r --filter=@workspace/weather-app run build",
+  "outputDirectory": "artifacts/weather-app/dist",
+  "root": "./",
+  "env": {
+    "NODE_VERSION": "20"
+  }
+}
