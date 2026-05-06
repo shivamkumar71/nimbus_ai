@@ -3,16 +3,10 @@
 [build]
   base = "./"
   command = "pnpm install && pnpm -r --filter=@workspace/weather-app run build"
-  publish = "artifacts/weather-app/dist"
+  publish = "artifacts/weather-app/dist/public"
 
 [build.environment]
   NODE_VERSION = "20"
-
-# Redirect API calls to backend
-[[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/api/:splat"
-  status = 200
 
 # SPA routing - redirect all non-file requests to index.html
 [[redirects]]
