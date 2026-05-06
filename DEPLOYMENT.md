@@ -4,13 +4,75 @@ This guide will help you deploy Nimbus Weather to production.
 
 ## Prerequisites
 
-- Docker and Docker Compose installed
-- A VPS or cloud provider (AWS, DigitalOcean, Render, Railway, etc.)
+- Docker and Docker Compose installed (for local VPS deployment)
+- A cloud provider (Render for backend, Netlify for frontend)
 - Domain name (optional)
+- Git repository (GitHub, GitLab, etc.)
 
 ## Deployment Options
 
-### Option 1: Docker Compose (Recommended for VPS)
+### Option 1: Split Deployment (Recommended) - Backend on Render + Frontend on Netlify
+
+This approach separates your backend API and frontend, allowing independent scaling and faster frontend deployments.
+
+#### Benefits:
+- ⚡ Faster frontend deployments (Netlify CDN)
+- 🔄 Independent backend updates
+- 🌍 Global frontend delivery via Netlify CDN
+- 💰 Cost-effective (Render free tier + Netlify free tier)
+
+#### Step 1: Deploy Backend to Render
+
+1. **Prepare Your Repository**
+   ```bash
+   git add .
+   git commit -m "Setup split deployment"
+   git push origin main
+   ```
+
+2. **Deploy Backend**
+   - Go to [Render Dashboard](https://dashboard.render.com/)
+   - Click **"New +"** → **"Blueprint"**
+   - Connect your GitHub repository
+   - Render will detect `render.yaml` (backend-only)
+   - Click **"Apply"** to deploy
+
+3. **Your Backend URL**
+   - Backend will be available at: `https://nimbus-weather-api.onrender.com/api/`
+   - Save this URL for the frontend configuration
+
+#### Step 2: Deploy Frontend to Netlify
+
+1. **Connect to Netlify**
+   - Go to [Netlify](https://app.netlify.com/)
+   - Click **"Add new site"** → **"Import an existing project"**
+   - Select **GitHub** and choose your repository
+
+2. **Configure Build Settings**
+   - **Base directory**: `.` (root)
+   - **Build command**: `pnpm install --frozen-lockfile && cd artifacts/weather-app && pnpm run build`
+   - **Publish directory**: `artifacts/weather-app/dist`
+   - **Environment variables**:
+     - `VITE_API_URL`: `https://nimbus-weather-api.onrender.com/api`
+     - `NODE_VERSION`: `20`
+
+3. **Deploy**
+   - Click **"Deploy"**
+   - Netlify will build and deploy your frontend
+
+4. **Access Your Application**
+   - Frontend: `https://your-site.netlify.app`
+   - Backend API: `https://nimbus-weather-api.onrender.com/api/`
+
+#### Updating After Deployment
+
+- **Backend updates**: Push to `main` → Render auto-rebuilds
+- **Frontend updates**: Push to `main` → Netlify auto-rebuilds
+- **API URL changes**: Update environment variable `VITE_API_URL` in Netlify dashboard
+
+---
+
+### Option 2: Docker Compose (For Self-Hosted VPS)
 
 #### 1. Build the Frontend
 
@@ -37,66 +99,19 @@ This will:
 - Frontend: http://your-server-ip
 - Backend API: http://your-server-ip/api/
 
-### Option 2: Render Blueprint (Recommended for Render)
+---
 
-The easiest way to deploy Nimbus Weather on Render. The backend serves both the API and the static frontend files.
+### Option 3: Render Blueprint (Monolithic - Not Recommended)
 
-#### 1. Prepare Your Repository
+For deployments where both frontend and backend run on the same server:
 
-Make sure your code is pushed to GitHub:
-
-```bash
-git add .
-git commit -m "Ready for Render deployment"
-git push origin main
-```
-
-#### 2. Deploy Using Render Blueprint
-
-1. Go to [Render Dashboard](https://dashboard.render.com/)
-2. Click **"New +"** → **"Blueprint"**
-3. Connect your GitHub repository
-4. Render will automatically detect the `render.yaml` file
+1. Edit `render.yaml` to include frontend build command
+2. Go to [Render Dashboard](https://dashboard.render.com/)
+3. Click **"New +"** → **"Blueprint"**
+4. Connect your GitHub repository
 5. Click **"Apply"** to deploy
 
-That's it! Render will:
-- Install pnpm and Node.js for building the frontend
-- Build the React app for production
-- Install Python dependencies
-- Start the FastAPI backend
-- Serve both frontend and API from the same URL
-
-#### 3. Access Your Application
-
-- Your app will be available at: `https://nimbus-weather.onrender.com`
-- API endpoints: `https://nimbus-weather.onrender.com/api/`
-
-#### Manual Setup on Render (Alternative)
-
-If you prefer manual configuration:
-
-1. **Create a Web Service**
-   - Go to Render Dashboard → **"New +"** → **"Web Service"**
-   - Connect your GitHub repo
-
-2. **Configure the Service**
-   - **Name**: `nimbus-weather`
-   - **Runtime**: `Python 3`
-   - **Build Command**:
-     ```bash
-     cd artifacts/weather-app && pnpm install && pnpm run build && cd ../../artifacts/api-server/python && pip install -r requirements.txt
-     ```
-   - **Start Command**:
-     ```bash
-     cd artifacts/api-server/python && uvicorn main:app --host 0.0.0.0 --port $PORT
-     ```
-   - **Plan**: Free (or choose a paid plan for better performance)
-
-3. **Deploy**
-   - Click **"Create Web Service"**
-   - Render will build and deploy your app
-
-#### Deploy Frontend Separately to Vercel/Netlify
+**Note**: This approach is slower for frontend-only changes. Use Option 1 for better performance.
 
 If you want to deploy frontend and backend separately:
 

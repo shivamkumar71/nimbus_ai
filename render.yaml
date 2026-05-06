@@ -1,16 +1,12 @@
 services:
-  # Backend Web Service (also serves static frontend)
+  # Backend API Service (Python FastAPI)
   - type: web
-    name: nimbus-weather
+    name: nimbus-weather-api
     runtime: python
     region: oregon
     plan: free
-    buildCommand: |
-      cd artifacts/weather-app && pnpm install && pnpm run build
-      cd ../../artifacts/api-server/python && pip install -r requirements.txt
+    buildCommand: cd artifacts/api-server/python && pip install -r requirements.txt
     startCommand: cd artifacts/api-server/python && uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.0
-      - key: NODE_VERSION
-        value: 20

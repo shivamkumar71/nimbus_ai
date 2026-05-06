@@ -43,7 +43,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Allow CORS from the frontend (the shared proxy handles auth in prod)
+# Allow CORS from the frontend (for split deployment on Render + Netlify)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -52,10 +52,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Serve static frontend files in production
-static_dir = Path(__file__).parent.parent.parent.parent / "artifacts" / "weather-app" / "dist" / "public"
-if static_dir.exists():
-    app.mount("/assets", StaticFiles(directory=str(static_dir / "assets")), name="assets")
+# Note: Static frontend files are no longer served from the backend.
+# Frontend is deployed separately on Netlify.
+# The backend API is now pure API-only, optimized for Render deployment.
 
 # ── Routes ─────────────────────────────────────────────────────────────────────
 
@@ -132,20 +131,8 @@ async def predict_temperature(
     return prediction
 
 
-# ── SPA Fallback ───────────────────────────────────────────────────────────────
-# Serve index.html for any non-API route (enables client-side routing)
-@app.get("/{full_path:path}")
-async def serve_spa(full_path: str):
-    # Don't serve index.html for API routes
-    if full_path.startswith("api/"):
-        raise HTTPException(status_code=404, detail="API endpoint not found")
-
-    index_file = static_dir / "index.html"
-    if index_file.exists():
-        return FileResponse(str(index_file))
-    raise HTTPException(status_code=404, detail="Frontend not built")
-
 # ── Entry point ────────────────────────────────────────────────────────────────
+# Note: SPA fallback route removed — frontend is now deployed separately on Netlify
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
