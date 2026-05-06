@@ -14,9 +14,9 @@
 
 **Enterprise-grade weather forecasting with machine learning temperature prediction, real-time data processing, and stunning visual analytics.**
 
-Live demo: https://nimbus-ai-xir7.onrender.com/
+Live demo: https://weatherapi71.netlify.app/
 
-[Live Demo](https://nimbus-ai-xir7.onrender.com/) • [GitHub](https://github.com/shivamkumar71)
+[Live Demo](https://weatherapi71.netlify.app/) • [GitHub](https://github.com/shivamkumar71)
 
 ![SkyPulse App Preview](artifacts/weather-app/public/opengraph.jpg)
 
@@ -708,9 +708,9 @@ We welcome contributions! Here's how to get started:
 
 ### 1. Fork the Repository
 ```bash
-git clone https://github.com/yourusername/skyspulse-weather.git
+git clone https://github.com/shivamkumar71/nimbus_ai.git
 cd Weather-Forecast
-git remote add upstream https://github.com/original/skyspulse-weather.git
+git remote add upstream https://github.com/original/nimbus_ai.git
 ```
 
 ### 2. Create a Feature Branch
@@ -800,10 +800,10 @@ Free to use, modify, and distribute!
 
 ## 📞 Support & Contact
 
-- 📧 **Email:** support@skypulse-weather.dev
-- 🐛 **Issues:** [GitHub Issues](https://github.com/yourusername/skyspulse-weather/issues)
-- 💬 **Discussions:** [GitHub Discussions](https://github.com/yourusername/skyspulse-weather/discussions)
-- 🐦 **Twitter:** [@SkyPulseApp](https://twitter.com/skypulseapp)
+- 📧 **Email:** deepkumar14379@gmail.com
+- 🐛 **Issues:** [GitHub Issues](https://github.com/shivamkumar71/nimbus_ai/issues)
+- 💬 **Discussions:** [GitHub Discussions](https://github.com/shivamkumar71/nimbus_ai/discussions)
+
 
 ---
 
@@ -832,8 +832,8 @@ Free to use, modify, and distribute!
 
 ### ⭐ If you find this project useful, please consider starring it!
 
-**Made with ❤️ by the SkyPulse Team**
+**Made with ❤️ by the Nimbus_AI Team**
 
-[View on GitHub](https://github.com) • [Website](https://skypulse-weather.dev) • [Docs](https://docs.skypulse-weather.dev)
+[View on GitHub](https://github.com) • [Website](https://weatherapi71.netlify.app/) • [Docs](https://docs.skypulse-weather.dev)
 
 </div>
